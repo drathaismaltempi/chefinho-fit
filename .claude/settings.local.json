@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"C:\\\\Users\\\\caio_\\\\Documents\" 2>&1)",
+      "Bash(find \"C:\\\\Users\\\\caio_\" -maxdepth 2 -type f \\\\\\( -name \"go.mod\" -o -name \"go.sum\" \\\\\\) 2>/dev/null)",
+      "Bash(npm create *)",
+      "Bash(npx create-vite@latest . --template react-ts --force)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(npx create-vite@latest chefinho-fit --template react-ts)",
+      "Bash(Copy-Item -Path \"C:\\\\Users\\\\caio_\\\\Documents\\\\chefinho-fit\\\\*\" -Destination \"C:\\\\Users\\\\caio_\\\\Documents\\\\chefinho go\\\\\" -Recurse -Force 2>&1; Remove-Item \"C:\\\\Users\\\\caio_\\\\Documents\\\\chefinho-fit\" -Recurse -Force 2>&1; ls \"C:\\\\Users\\\\caio_\\\\Documents\\\\chefinho go\")",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}
