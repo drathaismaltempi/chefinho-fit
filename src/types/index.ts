@@ -104,12 +104,19 @@ export interface WeeklyGoal {
   completed: boolean
 }
 
+export interface ShoppingItem {
+  name: string
+  reason: string
+  category: string
+}
+
 export interface MealPlan {
   id: string
   child_id: string
   week_start: string
   days: DayPlan[]
   goals: WeeklyGoal[]
+  shopping_list?: ShoppingItem[]
   generated_at: string
 }
 

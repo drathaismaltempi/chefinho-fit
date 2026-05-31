@@ -8,17 +8,8 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200)
-    res.end()
-    return
-  }
-
-  if (req.method !== 'POST') {
-    res.writeHead(405)
-    res.end(JSON.stringify({ error: 'Method not allowed' }))
-    return
-  }
+  if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return }
+  if (req.method !== 'POST') { res.writeHead(405); res.end(JSON.stringify({ error: 'Method not allowed' })); return }
 
   try {
     const body = req.body ?? await new Promise<any>((resolve) => {
@@ -27,44 +18,59 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
       req.on('end', () => resolve(JSON.parse(data)))
     })
 
-    const { child, rawMeals } = body
+    const { child, mealTypes } = body
 
-    const prompt = `Você é um nutricionista infantil brasileiro especialista em alimentação saudável para crianças.
+    const prompt = `Você é um nutricionista infantil brasileiro especialista em alimentação saudável e gostosa para crianças.
 
-Perfil da criança:
+PERFIL DA CRIANÇA:
 - Nome: ${child.name}, ${child.age} anos, sexo: ${child.sex === 'M' ? 'menino' : 'menina'}
 - Peso: ${child.weight_kg}kg, Altura: ${child.height_cm}cm
-- Nível de atividade: ${child.activity_level}
+- Atividade física: ${child.activity_level}
 - Intestino: ${child.gut_health}
-- Alergias: ${child.allergies?.join(', ') || 'nenhuma'}
+- Alergias/intolerâncias: ${child.allergies?.join(', ') || 'nenhuma'}
 - Não gosta de: ${child.food_dislikes?.join(', ') || 'nenhum'}
-- Adora: ${child.food_preferences?.join(', ') || 'variado'}
-- Despensa: ${child.pantry_raw}
+- Adora comer: ${child.food_preferences?.join(', ') || 'variado'}
+- Utensílios disponíveis: ${child.cookware?.join(', ') || 'fogão e frigideira'}
+- INGREDIENTES DISPONÍVEIS NA DESPENSA: ${child.pantry_raw}
 
-Para cada refeição abaixo, crie:
-1. Um nome DIVERTIDO e apetitoso para a criança (máx 5 palavras)
-2. Instruções de preparo em 2-3 passos SIMPLES
-3. Uma dica divertida e motivadora
+IMPORTANTE: Use APENAS os ingredientes da despensa listados acima. Não invente ingredientes que não estão na lista.
 
-Refeições:
-${rawMeals.map((m: { type: string; ingredients: string[] }, i: number) => `${i + 1}. ${m.type}: ingredientes ${m.ingredients.join(', ')}`).join('\n')}
+Crie um cardápio completo para as seguintes refeições do dia: ${mealTypes.join(', ')}
 
-Crie também 2 metas semanais simples e motivadoras para a criança.
+Para CADA refeição, crie:
+1. Nome criativo e divertido para a criança (ex: "Super Panqueca da Força", "Vitamina Turbo do Gabriel")
+2. Lista de ingredientes com medidas caseiras (ex: "2 ovos", "1 banana", "1 punhado de aveia")
+3. Modo de preparo detalhado em 3-4 passos simples que a mãe consiga fazer fácil
+4. 1 dica de como deixar o prato MAIS GOSTOSO e atrativo para a criança (ex: formato divertido, coberturas, apresentação)
+5. 1 dica nutricional divertida para contar para a criança (ex: "A banana tem potássio que deixa seus músculos fortes!")
 
-Responda SOMENTE com JSON válido:
+Depois do cardápio, crie:
+- 2 metas semanais motivadoras e simples para a criança
+- Uma lista de compras com 5 a 8 itens que NÃO estão na despensa mas que melhorariam muito o cardápio, com explicação do porquê cada item é importante
+
+Responda SOMENTE com JSON válido neste formato exato:
 {
   "meals": [
-    { "name": "Nome divertido", "preparation": ["Passo 1", "Passo 2"], "tip": "Dica!" }
+    {
+      "name": "Nome criativo do prato",
+      "ingredients": ["2 ovos", "1 banana amassada", "1 col. de aveia"],
+      "preparation": ["Passo 1 detalhado", "Passo 2 detalhado", "Passo 3 detalhado"],
+      "taste_tip": "Dica de como deixar mais gostoso (ex: coloque granola por cima!)",
+      "nutrition_tip": "Dica nutricional divertida para a criança"
+    }
   ],
   "goals": [
-    { "description": "Meta 1", "target_value": 5, "unit": "dias" },
-    { "description": "Meta 2", "target_value": 3, "unit": "vezes" }
+    { "description": "Meta motivadora 1", "target_value": 5, "unit": "dias" },
+    { "description": "Meta motivadora 2", "target_value": 3, "unit": "vezes" }
+  ],
+  "shopping_list": [
+    { "name": "nome do item", "reason": "Por que comprar e como vai melhorar a alimentação", "category": "fruta/legume/proteína/etc" }
   ]
 }`
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     })
 

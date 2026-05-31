@@ -110,27 +110,36 @@ export function generateMealPlan(child: Child): MealPlan {
 // ─── Claude API Enhancement ──────────────────────────────────────────────────
 export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promise<MealPlan> {
   try {
-    const day0Meals = plan.days[0].meals
-    const rawMeals = day0Meals.map(m => ({ type: m.type, ingredients: m.ingredients }))
+    const activeTypes = plan.days[0].meals.map(m => m.type)
 
     const res = await fetch('/api/generate-meal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ child, rawMeals }),
+      body: JSON.stringify({ child, mealTypes: activeTypes }),
     })
 
     if (!res.ok) throw new Error('API error')
     const data = await res.json()
 
-    // Apply AI-generated names/preparation to all 7 days
-    const enhancedDays: DayPlan[] = plan.days.map(day => ({
+    if (!data.meals || data.meals.length === 0) throw new Error('No meals returned')
+
+    // Apply AI meals to ALL 7 days, rotating through the AI suggestions
+    const enhancedDays: DayPlan[] = plan.days.map((day, dayIdx) => ({
       ...day,
-      meals: day.meals.map((meal, i) => ({
-        ...meal,
-        name: data.meals[i]?.name ?? meal.name,
-        preparation: data.meals[i]?.preparation ?? meal.preparation,
-        tip: data.meals[i]?.tip ?? meal.tip,
-      })),
+      meals: day.meals.map((meal, mealIdx) => {
+        // Rotate through AI meals to vary the week
+        const aiMealIdx = (mealIdx + dayIdx) % data.meals.length
+        const aiMeal = data.meals[aiMealIdx] ?? data.meals[mealIdx] ?? {}
+        return {
+          ...meal,
+          name: aiMeal.name ?? meal.name,
+          ingredients: aiMeal.ingredients ?? meal.ingredients,
+          preparation: aiMeal.preparation ?? meal.preparation,
+          tip: aiMeal.taste_tip
+            ? `${aiMeal.taste_tip} | ${aiMeal.nutrition_tip ?? ''}`
+            : (aiMeal.nutrition_tip ?? meal.tip),
+        }
+      }),
     }))
 
     const aiGoals: WeeklyGoal[] = (data.goals ?? []).map((g: Omit<WeeklyGoal, 'id' | 'current_value' | 'completed'>, i: number) => ({
@@ -144,8 +153,10 @@ export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promi
       ...plan,
       days: enhancedDays,
       goals: aiGoals.length > 0 ? aiGoals : plan.goals,
+      shopping_list: data.shopping_list ?? [],
     }
-  } catch {
+  } catch (e) {
+    console.error('enhanceMealPlanWithAI error:', e)
     return plan
   }
 }

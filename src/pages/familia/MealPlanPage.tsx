@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { ProgressBar } from '../../components/ui/ProgressBar'
 import type { MealPlan, WeeklyGoal } from '../../types'
 import { MEAL_TYPE_LABELS } from '../../types'
-import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
 import { usePointsStore } from '../../store/usePointsStore'
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -88,9 +88,14 @@ export function MealPlanPage() {
                   </p>
                 ))}
               </div>
-              {meal.tip && (
+                      {meal.tip && meal.tip.includes('|') ? (
+                <div className="mt-2 flex flex-col gap-1">
+                  <p className="text-xs font-body text-turquesa italic">🍴 {meal.tip.split('|')[0].trim()}</p>
+                  <p className="text-xs font-body text-verde italic">🌟 {meal.tip.split('|')[1]?.trim()}</p>
+                </div>
+              ) : meal.tip ? (
                 <p className="mt-2 text-xs font-body text-turquesa italic">💡 {meal.tip}</p>
-              )}
+              ) : null}
             </Card>
           </motion.div>
         ))}
@@ -116,6 +121,32 @@ export function MealPlanPage() {
           )
         })}
       </div>
+
+      {/* Shopping List */}
+      {plan.shopping_list && plan.shopping_list.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <ShoppingCart size={20} className="text-coral" />
+            <h3 className="font-title font-bold text-gray-800">Lista de Compras Sugerida 🛒</h3>
+          </div>
+          <Card className="bg-coral/5 border-coral/20">
+            <p className="text-xs font-body text-gray-500 mb-3">Itens que melhorariam muito o cardápio do {child?.name ?? 'seu Chefinho'}:</p>
+            <div className="flex flex-col gap-2.5">
+              {plan.shopping_list.map((item, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="text-lg flex-shrink-0">🛍️</span>
+                  <div>
+                    <p className="font-title font-semibold text-sm text-gray-800">{item.name}
+                      <Badge color="gray" className="ml-2 text-[9px]">{item.category}</Badge>
+                    </p>
+                    <p className="font-body text-xs text-gray-500 mt-0.5">{item.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       <Button variant="ghost" onClick={() => navigate('/familia')} className="mt-2">
         Refazer Cardápio

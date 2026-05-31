@@ -23,13 +23,29 @@ const INITIAL: FormData = {
 const COOKWARE_OPTIONS = ['Fogão', 'Forno', 'Airfryer', 'Micro-ondas', 'Frigideira', 'Panela elétrica', 'Liquidificador']
 const ALLERGY_OPTIONS = ['Glúten', 'Lactose', 'Ovo', 'Amendoim', 'Frutos do mar', 'Soja', 'Nozes']
 
+function loadSavedForm(): FormData {
+  try {
+    const saved = localStorage.getItem('chefinho-child')
+    if (!saved) return INITIAL
+    const child = JSON.parse(saved) as Child
+    // Map Child back to FormData (omit id, owner_id, pantry_parsed)
+    const { id: _id, owner_id: _o, pantry_parsed: _pp, ...formData } = child
+    return formData as FormData
+  } catch {
+    return INITIAL
+  }
+}
+
 export function OnboardingPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState<FormData>(INITIAL)
+  const [form, setForm] = useState<FormData>(loadSavedForm)
   const [tagInput, setTagInput] = useState('')
-  const [pantryPreview, setPantryPreview] = useState<ReturnType<typeof parsePantry>>([])
+  const [pantryPreview, setPantryPreview] = useState<ReturnType<typeof parsePantry>>(
+    () => form.pantry_raw ? parsePantry(form.pantry_raw) : []
+  )
   const [isGenerating, setIsGenerating] = useState(false)
+  const isEditing = !!localStorage.getItem('chefinho-child')
 
   const update = (field: keyof FormData, value: unknown) => setForm(f => ({ ...f, [field]: value }))
   const toggleArr = (field: 'allergies' | 'food_dislikes' | 'food_preferences' | 'cookware', val: string) => {
@@ -45,9 +61,10 @@ export function OnboardingPage() {
   const handleFinish = async () => {
     setIsGenerating(true)
     const parsed = parsePantry(form.pantry_raw)
-    const child: Child = { ...form, id: `child-${Date.now()}`, owner_id: 'local', pantry_parsed: parsed }
+    const existingChild = localStorage.getItem('chefinho-child')
+    const existingId = existingChild ? JSON.parse(existingChild).id : `child-${Date.now()}`
+    const child: Child = { ...form, id: existingId, owner_id: 'local', pantry_parsed: parsed }
     const basePlan = generateMealPlan(child)
-    // Enhance with Claude AI (falls back to base plan if API unavailable)
     const plan = await enhanceMealPlanWithAI(child, basePlan)
     localStorage.setItem('chefinho-child', JSON.stringify(child))
     localStorage.setItem('chefinho-meal-plan', JSON.stringify(plan))
@@ -63,7 +80,10 @@ export function OnboardingPage() {
           <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i < step ? 'bg-coral' : 'bg-gray-200'}`} />
         ))}
       </div>
-      <p className="text-xs text-gray-400 font-body">Passo {step} de {TOTAL_STEPS}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400 font-body">Passo {step} de {TOTAL_STEPS}</p>
+        {isEditing && <p className="text-xs text-turquesa font-body">✏️ Editando perfil de {form.name}</p>}
+      </div>
 
       <AnimatePresence mode="wait">
         <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.2 }}>
