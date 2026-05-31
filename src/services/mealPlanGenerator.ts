@@ -154,10 +154,11 @@ export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promi
       days: enhancedDays,
       goals: aiGoals.length > 0 ? aiGoals : plan.goals,
       shopping_list: data.shopping_list ?? [],
+      ai_enhanced: true,
     }
   } catch (e) {
     console.error('enhanceMealPlanWithAI error:', e)
-    return plan
+    return { ...plan, ai_enhanced: false }
   }
 }
 

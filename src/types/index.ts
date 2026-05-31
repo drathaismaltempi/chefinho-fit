@@ -117,6 +117,7 @@ export interface MealPlan {
   days: DayPlan[]
   goals: WeeklyGoal[]
   shopping_list?: ShoppingItem[]
+  ai_enhanced?: boolean
   generated_at: string
 }
 

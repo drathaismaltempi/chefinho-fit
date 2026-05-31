@@ -45,6 +45,23 @@ export function MealPlanPage() {
         </h2>
       </div>
 
+      {/* AI Status Badge */}
+      {plan.ai_enhanced === true && (
+        <div className="bg-verde/20 border border-verde rounded-xl px-3 py-2 flex items-center gap-2">
+          <span className="text-lg">✨</span>
+          <p className="font-body text-sm text-gray-700">Cardápio criado pela IA com base na sua despensa!</p>
+        </div>
+      )}
+      {plan.ai_enhanced === false && (
+        <div className="bg-amarelo border border-yellow-300 rounded-xl px-3 py-2 flex items-center gap-2">
+          <span className="text-lg">⚠️</span>
+          <div>
+            <p className="font-title font-semibold text-sm text-gray-800">IA indisponível no momento</p>
+            <p className="font-body text-xs text-gray-600">Usando cardápio padrão. Tente gerar novamente em alguns minutos.</p>
+          </div>
+        </div>
+      )}
+
       {/* Day selector */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {plan.days.map((d, i) => (

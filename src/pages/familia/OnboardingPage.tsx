@@ -64,9 +64,12 @@ export function OnboardingPage() {
     const existingChild = localStorage.getItem('chefinho-child')
     const existingId = existingChild ? JSON.parse(existingChild).id : `child-${Date.now()}`
     const child: Child = { ...form, id: existingId, owner_id: 'local', pantry_parsed: parsed }
+    // Save child first
+    localStorage.setItem('chefinho-child', JSON.stringify(child))
+    // Remove old plan so it won't show stale data
+    localStorage.removeItem('chefinho-meal-plan')
     const basePlan = generateMealPlan(child)
     const plan = await enhanceMealPlanWithAI(child, basePlan)
-    localStorage.setItem('chefinho-child', JSON.stringify(child))
     localStorage.setItem('chefinho-meal-plan', JSON.stringify(plan))
     setIsGenerating(false)
     navigate('/familia/plano')
