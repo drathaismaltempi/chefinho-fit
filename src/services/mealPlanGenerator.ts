@@ -107,6 +107,49 @@ export function generateMealPlan(child: Child): MealPlan {
   }
 }
 
+// ─── Claude API Enhancement ──────────────────────────────────────────────────
+export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promise<MealPlan> {
+  try {
+    const day0Meals = plan.days[0].meals
+    const rawMeals = day0Meals.map(m => ({ type: m.type, ingredients: m.ingredients }))
+
+    const res = await fetch('/api/generate-meal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ child, rawMeals }),
+    })
+
+    if (!res.ok) throw new Error('API error')
+    const data = await res.json()
+
+    // Apply AI-generated names/preparation to all 7 days
+    const enhancedDays: DayPlan[] = plan.days.map(day => ({
+      ...day,
+      meals: day.meals.map((meal, i) => ({
+        ...meal,
+        name: data.meals[i]?.name ?? meal.name,
+        preparation: data.meals[i]?.preparation ?? meal.preparation,
+        tip: data.meals[i]?.tip ?? meal.tip,
+      })),
+    }))
+
+    const aiGoals: WeeklyGoal[] = (data.goals ?? []).map((g: Omit<WeeklyGoal, 'id' | 'current_value' | 'completed'>, i: number) => ({
+      id: `goal-ai-${i}`,
+      current_value: 0,
+      completed: false,
+      ...g,
+    }))
+
+    return {
+      ...plan,
+      days: enhancedDays,
+      goals: aiGoals.length > 0 ? aiGoals : plan.goals,
+    }
+  } catch {
+    return plan
+  }
+}
+
 // ─── Recipe Combiner (Cozinha dos Campeões) ───────────────────────────────────
 export function combineIngredients(names: string[]): { recipe_name: string; instructions: string[] } {
   const joined = names.join(' + ')

@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
 import { parsePantry } from '../../services/pantryParser'
 import { PANTRY_CATEGORY_LABELS, type Child, type PantryItemCategory } from '../../types'
-import { generateMealPlan } from '../../services/mealPlanGenerator'
+import { generateMealPlan, enhanceMealPlanWithAI } from '../../services/mealPlanGenerator'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 
 const TOTAL_STEPS = 8
@@ -29,6 +29,7 @@ export function OnboardingPage() {
   const [form, setForm] = useState<FormData>(INITIAL)
   const [tagInput, setTagInput] = useState('')
   const [pantryPreview, setPantryPreview] = useState<ReturnType<typeof parsePantry>>([])
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const update = (field: keyof FormData, value: unknown) => setForm(f => ({ ...f, [field]: value }))
   const toggleArr = (field: 'allergies' | 'food_dislikes' | 'food_preferences' | 'cookware', val: string) => {
@@ -41,12 +42,16 @@ export function OnboardingPage() {
     if (v.length > 5) setPantryPreview(parsePantry(v))
   }
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    setIsGenerating(true)
     const parsed = parsePantry(form.pantry_raw)
     const child: Child = { ...form, id: `child-${Date.now()}`, owner_id: 'local', pantry_parsed: parsed }
-    const plan = generateMealPlan(child)
+    const basePlan = generateMealPlan(child)
+    // Enhance with Claude AI (falls back to base plan if API unavailable)
+    const plan = await enhanceMealPlanWithAI(child, basePlan)
     localStorage.setItem('chefinho-child', JSON.stringify(child))
     localStorage.setItem('chefinho-meal-plan', JSON.stringify(plan))
+    setIsGenerating(false)
     navigate('/familia/plano')
   }
 
@@ -199,8 +204,8 @@ export function OnboardingPage() {
             Próximo <ChevronRight size={16} />
           </Button>
         ) : (
-          <Button fullWidth variant="secondary" onClick={handleFinish}>
-            Gerar Cardápio 🍽️
+          <Button fullWidth variant="secondary" onClick={handleFinish} disabled={isGenerating}>
+            {isGenerating ? '✨ A IA está criando seu cardápio...' : 'Gerar Cardápio com IA 🍽️'}
           </Button>
         )}
       </div>
