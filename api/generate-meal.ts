@@ -1,43 +1,17 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 import Anthropic from '@anthropic-ai/sdk'
-import type { IncomingMessage, ServerResponse } from 'http'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-async function readBody(req: IncomingMessage): Promise<any> {
-  return new Promise((resolve, reject) => {
-    let data = ''
-    req.on('data', chunk => { data += chunk.toString() })
-    req.on('end', () => {
-      try { resolve(data ? JSON.parse(data) : {}) }
-      catch (e) { reject(new Error('JSON inválido: ' + data.slice(0, 100))) }
-    })
-    req.on('error', reject)
-  })
-}
-
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-  if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return }
-  if (req.method !== 'POST') { res.writeHead(405); res.end(JSON.stringify({ error: 'Method not allowed' })); return }
-
-  let body: any
-  try {
-    body = await readBody(req)
-  } catch (e: any) {
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Erro ao ler dados: ' + e.message }))
-    return
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { child, mealTypes } = body
+  const { child, mealTypes } = req.body ?? {}
 
   if (!child || !mealTypes) {
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Dados insuficientes. child e mealTypes são obrigatórios.' }))
-    return
+    return res.status(400).json({ error: 'Dados insuficientes', received: JSON.stringify(req.body).slice(0, 200) })
   }
 
   try {
@@ -48,34 +22,34 @@ PERFIL DA CRIANÇA:
 - Peso: ${child.weight_kg}kg, Altura: ${child.height_cm}cm
 - Atividade física: ${child.activity_level}
 - Intestino: ${child.gut_health}
-- Alergias: ${child.allergies?.join(', ') || 'nenhuma'}
-- Não gosta de: ${child.food_dislikes?.join(', ') || 'nenhum'}
-- Adora comer: ${child.food_preferences?.join(', ') || 'variado'}
-- Utensílios: ${child.cookware?.join(', ') || 'fogão e frigideira'}
+- Alergias: ${(child.allergies ?? []).join(', ') || 'nenhuma'}
+- Não gosta de: ${(child.food_dislikes ?? []).join(', ') || 'nenhum'}
+- Adora comer: ${(child.food_preferences ?? []).join(', ') || 'variado'}
+- Utensílios: ${(child.cookware ?? []).join(', ') || 'fogão e frigideira'}
 - INGREDIENTES DA DESPENSA: ${child.pantry_raw}
 
-REGRA FUNDAMENTAL: Use SOMENTE os ingredientes listados acima na despensa. Não invente ingredientes ausentes.
+REGRA FUNDAMENTAL: Use SOMENTE os ingredientes listados acima na despensa.
 
-Crie um cardápio para estas refeições: ${mealTypes.join(', ')}
+Crie um cardápio para estas refeições: ${(mealTypes ?? []).join(', ')}
 
 Para CADA refeição:
-1. Nome criativo e divertido (ex: "Frango Turbo da Mamãe", "Vitamina da Força do Gabriel")
-2. Ingredientes com medidas caseiras usando SÓ o que tem na despensa
-3. Modo de preparo em 3-4 passos simples e detalhados
-4. Dica para deixar mais gostoso (formato divertido, decoração, etc)
+1. Nome criativo e divertido (ex: "Frango Turbinado da Mamãe", "Vitamina da Força")
+2. Ingredientes com medidas caseiras usando SOMENTE a despensa
+3. Modo de preparo em 3-4 passos simples
+4. Dica para deixar mais gostoso
 5. Curiosidade nutricional divertida para a criança
 
-Depois crie:
-- 2 metas semanais motivadoras adequadas para ${child.age} anos
-- Lista de 6 itens para comprar que NÃO estão na despensa mas melhorariam muito o cardápio
+Depois:
+- 2 metas semanais motivadoras para ${child.age} anos
+- Lista de 5 itens para comprar que NÃO estão na despensa mas melhorariam o cardápio
 
 Responda SOMENTE com JSON válido:
 {
   "meals": [
     {
       "name": "Nome criativo",
-      "ingredients": ["1 ovo", "2 col de farinha de trigo"],
-      "preparation": ["Passo 1 detalhado", "Passo 2", "Passo 3"],
+      "ingredients": ["1 ovo", "1 xicara de arroz"],
+      "preparation": ["Passo 1", "Passo 2", "Passo 3"],
       "taste_tip": "Dica para ficar mais gostoso",
       "nutrition_tip": "Curiosidade nutricional divertida"
     }
@@ -91,20 +65,18 @@ Responda SOMENTE com JSON válido:
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
+      max_tokens: 2500,
       messages: [{ role: 'user', content: prompt }],
     })
 
     const text = (message.content[0] as { text: string }).text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('JSON não encontrado na resposta da IA')
+    if (!jsonMatch) throw new Error('JSON não encontrado na resposta')
 
     const data = JSON.parse(jsonMatch[0])
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(data))
+    return res.status(200).json(data)
   } catch (err: any) {
     console.error('Erro Claude API:', err?.message ?? err)
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: err?.message ?? 'Erro desconhecido' }))
+    return res.status(500).json({ error: err?.message ?? 'Erro desconhecido na IA' })
   }
 }

@@ -8,6 +8,8 @@ const FOOD_MAP: Record<string, PantryItemCategory> = {
   'carne moida': 'proteinas', 'carne moída': 'proteinas', patinho: 'proteinas',
   'patinho moido': 'proteinas', 'patinho moído': 'proteinas',
   'baby beef': 'proteinas', beef: 'proteinas', picanha: 'proteinas',
+  'file mignon': 'proteinas', 'filé mignon': 'proteinas', 'file': 'proteinas',
+  'suino': 'proteinas', 'suína': 'proteinas', 'porco': 'proteinas', 'lombo': 'proteinas',
   alcatra: 'proteinas', contrafile: 'proteinas', 'contra file': 'proteinas',
   maminha: 'proteinas', acem: 'proteinas', 'músculo': 'proteinas', musculo: 'proteinas',
   linguica: 'proteinas', 'linguiça': 'proteinas', salsicha: 'proteinas',
