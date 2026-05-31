@@ -107,46 +107,95 @@ export function generateMealPlan(child: Child): MealPlan {
   }
 }
 
-// ─── Claude API Enhancement ──────────────────────────────────────────────────
+// ─── Claude API — chamada direta do navegador ────────────────────────────────
 export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promise<MealPlan> {
-  try {
-    const activeTypes = plan.days[0].meals.map(m => m.type)
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
+  if (!apiKey) {
+    console.warn('VITE_ANTHROPIC_API_KEY não configurada')
+    return { ...plan, ai_enhanced: false }
+  }
 
-    const res = await fetch('/api/generate-meal', {
+  const activeTypes = plan.days[0].meals.map(m => m.type)
+
+  const prompt = `Você é um nutricionista infantil brasileiro especialista em alimentação saudável e gostosa para crianças.
+
+PERFIL DA CRIANÇA:
+- Nome: ${child.name}, ${child.age} anos, sexo: ${child.sex === 'M' ? 'menino' : 'menina'}
+- Peso: ${child.weight_kg}kg, Altura: ${child.height_cm}cm
+- Atividade: ${child.activity_level} | Intestino: ${child.gut_health}
+- Alergias: ${(child.allergies ?? []).join(', ') || 'nenhuma'}
+- Não gosta de: ${(child.food_dislikes ?? []).join(', ') || 'nenhum'}
+- Adora: ${(child.food_preferences ?? []).join(', ') || 'variado'}
+- Utensílios: ${(child.cookware ?? []).join(', ') || 'fogão'}
+- DESPENSA (use SOMENTE estes itens): ${child.pantry_raw}
+
+Crie um cardápio para: ${activeTypes.join(', ')}
+
+Para CADA refeição:
+1. Nome criativo e divertido usando ingredientes da despensa
+2. Ingredientes com medidas caseiras (apenas da despensa)
+3. Modo de preparo em 3-4 passos simples
+4. Dica para deixar mais gostoso
+5. Curiosidade nutricional divertida
+
+Depois:
+- 2 metas semanais motivadoras para ${child.age} anos
+- 5 itens para comprar que não estão na despensa mas melhorariam o cardápio
+
+Responda SOMENTE com JSON válido:
+{
+  "meals": [{"name":"","ingredients":[],"preparation":[],"taste_tip":"","nutrition_tip":""}],
+  "goals": [{"description":"","target_value":5,"unit":"dias"}],
+  "shopping_list": [{"name":"","reason":"","category":""}]
+}`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ child, mealTypes: activeTypes }),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     })
 
-    if (!res.ok) throw new Error('API error')
-    const data = await res.json()
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`API ${res.status}: ${errText}`)
+    }
 
-    if (!data.meals || data.meals.length === 0) throw new Error('No meals returned')
+    const json = await res.json()
+    const text: string = json.content?.[0]?.text ?? ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error('JSON não encontrado')
+    const data = JSON.parse(match[0])
 
-    // Apply AI meals to ALL 7 days, rotating through the AI suggestions
+    if (!data.meals?.length) throw new Error('Nenhuma refeição retornada')
+
     const enhancedDays: DayPlan[] = plan.days.map((day, dayIdx) => ({
       ...day,
       meals: day.meals.map((meal, mealIdx) => {
-        // Rotate through AI meals to vary the week
-        const aiMealIdx = (mealIdx + dayIdx) % data.meals.length
-        const aiMeal = data.meals[aiMealIdx] ?? data.meals[mealIdx] ?? {}
+        const aiMeal = data.meals[(mealIdx + dayIdx) % data.meals.length] ?? {}
         return {
           ...meal,
           name: aiMeal.name ?? meal.name,
           ingredients: aiMeal.ingredients ?? meal.ingredients,
           preparation: aiMeal.preparation ?? meal.preparation,
-          tip: aiMeal.taste_tip
-            ? `${aiMeal.taste_tip} | ${aiMeal.nutrition_tip ?? ''}`
-            : (aiMeal.nutrition_tip ?? meal.tip),
+          tip: aiMeal.taste_tip && aiMeal.nutrition_tip
+            ? `${aiMeal.taste_tip} | ${aiMeal.nutrition_tip}`
+            : (aiMeal.taste_tip ?? aiMeal.nutrition_tip ?? meal.tip),
         }
       }),
     }))
 
     const aiGoals: WeeklyGoal[] = (data.goals ?? []).map((g: Omit<WeeklyGoal, 'id' | 'current_value' | 'completed'>, i: number) => ({
-      id: `goal-ai-${i}`,
-      current_value: 0,
-      completed: false,
-      ...g,
+      id: `goal-ai-${i}`, current_value: 0, completed: false, ...g,
     }))
 
     return {
@@ -156,8 +205,8 @@ export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promi
       shopping_list: data.shopping_list ?? [],
       ai_enhanced: true,
     }
-  } catch (e) {
-    console.error('enhanceMealPlanWithAI error:', e)
+  } catch (e: any) {
+    console.error('Claude API error:', e?.message ?? e)
     return { ...plan, ai_enhanced: false }
   }
 }
