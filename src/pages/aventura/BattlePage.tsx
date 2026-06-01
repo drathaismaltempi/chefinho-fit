@@ -11,41 +11,100 @@ import { Badge } from '../../components/ui/Badge'
 import { Shield, Swords } from 'lucide-react'
 
 const CARD_COLOR_BG: Record<string, string> = {
-  verde: 'from-green-400 to-emerald-500',
-  laranja: 'from-orange-400 to-amber-500',
-  azul: 'from-blue-400 to-cyan-500',
-  amarelo: 'from-yellow-300 to-amber-400',
-  vermelho: 'from-red-400 to-rose-500',
+  verde: 'from-lime-300 via-green-400 to-emerald-500',
+  laranja: 'from-orange-300 via-orange-400 to-amber-500',
+  azul: 'from-sky-300 via-blue-400 to-cyan-500',
+  amarelo: 'from-yellow-200 via-yellow-300 to-amber-400',
+  vermelho: 'from-rose-300 via-red-400 to-rose-600',
+}
+
+const CARD_BORDER: Record<string, string> = {
+  verde: 'border-green-200',
+  laranja: 'border-orange-200',
+  azul: 'border-sky-200',
+  amarelo: 'border-yellow-200',
+  vermelho: 'border-rose-200',
+}
+
+const ATTR_EMOJI: Record<BattleAttribute, string> = {
+  energia: '⚡',
+  valor_biologico: '🧬',
+  forca_vitaminica: '💪',
+  fator_saude: '❤️',
+  gordura_ruim: '☠️',
+}
+
+const RARITY_GLOW: Record<string, string> = {
+  comum: '',
+  raro: 'shadow-[0_0_20px_rgba(74,192,192,0.6)]',
+  lendario: 'shadow-[0_0_25px_rgba(255,193,7,0.8)]',
+}
+
+function AttrBar({ attr, val }: { attr: BattleAttribute; val: number }) {
+  const inverted = ATTRIBUTE_INVERTED[attr]
+  // For gordura_ruim, fill represents "how bad" (red); for others, fill is good (white/bright)
+  const pct = Math.min(100, val)
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[11px] leading-none w-3.5 text-center drop-shadow">{ATTR_EMOJI[attr]}</span>
+      <div className="flex-1 h-2.5 rounded-full bg-black/25 overflow-hidden">
+        <div
+          className={`h-full rounded-full ${inverted ? 'bg-red-300' : 'bg-white'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-title font-extrabold text-white w-5 text-right drop-shadow">{val}</span>
+    </div>
+  )
 }
 
 function NutritionCard({ card, selected, onClick, flip }: { card: FoodCard; selected?: boolean; onClick?: () => void; flip?: boolean }) {
   return (
     <motion.button
-      className={`relative w-full max-w-[160px] aspect-[3/4] rounded-2xl overflow-hidden shadow-lg transition-all ${selected ? 'ring-4 ring-coral ring-offset-2' : ''} ${onClick ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+      className={`relative w-full max-w-[170px] aspect-[3/4] rounded-3xl overflow-hidden border-4 ${CARD_BORDER[card.color] ?? 'border-gray-200'} ${RARITY_GLOW[card.rarity] ?? ''} shadow-xl transition-all ${selected ? 'ring-4 ring-coral ring-offset-2' : ''} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       onClick={onClick}
-      whileHover={onClick ? { y: -4 } : {}}
-      whileTap={onClick ? { scale: 0.95 } : {}}
+      whileHover={onClick ? { y: -6, scale: 1.03 } : {}}
+      whileTap={onClick ? { scale: 0.94 } : {}}
       animate={flip ? { rotateY: [0, 180, 0] } : {}}
       transition={{ duration: 0.6 }}
     >
-      <div className={`absolute inset-0 bg-gradient-to-b ${CARD_COLOR_BG[card.color] ?? 'from-gray-400 to-gray-600'}`} />
+      {/* Fundo gradiente vibrante */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${CARD_COLOR_BG[card.color] ?? 'from-gray-400 to-gray-600'}`} />
+      {/* Brilho radial atrás do personagem */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.55),transparent_55%)]" />
+      {/* Estrelinha de raridade */}
+      {card.rarity !== 'comum' && (
+        <div className="absolute top-1.5 right-2 z-20 text-sm drop-shadow">
+          {card.rarity === 'lendario' ? '🌟' : '✨'}
+        </div>
+      )}
+
       <div className="relative z-10 h-full flex flex-col p-2.5">
-        <div className="text-center mb-1">
-          <p className="font-title font-bold text-white text-xs truncate">{card.name}</p>
-          {card.is_chaos && <Badge color="coral" className="text-[9px]">CAOS</Badge>}
+        {/* Nome no topo numa faixa */}
+        <div className="bg-white/90 rounded-full px-2 py-1 mb-1 shadow-sm">
+          <p className="font-title font-extrabold text-gray-800 text-[11px] text-center truncate leading-tight">{card.name}</p>
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-5xl">{card.emoji}</span>
+
+        {/* Personagem grande com sombrinha */}
+        <div className="flex-1 flex items-center justify-center relative">
+          {card.is_chaos && (
+            <span className="absolute top-0 left-0 bg-red-600 text-white text-[8px] font-title font-bold px-1.5 py-0.5 rounded-full rotate-[-12deg] shadow">CAOS!</span>
+          )}
+          <motion.span
+            className="text-[64px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.3)]"
+            animate={{ y: [0, -4, 0], rotate: [0, -3, 3, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            {card.emoji}
+          </motion.span>
         </div>
-        <div className="flex flex-col gap-0.5 mt-1">
+
+        {/* Atributos em barras coloridas */}
+        <div className="bg-black/15 rounded-2xl p-1.5 flex flex-col gap-1 backdrop-blur-sm">
           {(Object.entries(card.attributes) as [BattleAttribute, number][]).map(([attr, val]) => (
-            <div key={attr} className="flex items-center justify-between">
-              <span className="text-[9px] text-white/80 font-body truncate">{ATTRIBUTE_LABELS[attr].split(' ')[1]}</span>
-              <span className={`text-[10px] font-title font-bold ${ATTRIBUTE_INVERTED[attr] ? 'text-red-200' : 'text-white'}`}>{val}</span>
-            </div>
+            <AttrBar key={attr} attr={attr} val={val} />
           ))}
         </div>
-        <p className="text-[9px] text-white/70 font-body text-center mt-1 italic leading-tight">"{card.voice_line}"</p>
       </div>
     </motion.button>
   )
@@ -192,19 +251,24 @@ export function BattlePage() {
 
           {session.phase === 'selecting-attribute' && selectedCard && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="bg-amarelo border-0">
-                <p className="font-title font-semibold text-sm text-gray-800 mb-2">Qual atributo você escolhe?</p>
+              <Card className="bg-gradient-to-br from-amarelo to-yellow-200 border-0">
+                <p className="font-title font-bold text-base text-gray-800 mb-2 text-center">⚔️ Qual poder você escolhe?</p>
                 <div className="grid grid-cols-1 gap-2">
-                  {(Object.keys(ATTRIBUTE_LABELS) as BattleAttribute[]).map(attr => (
-                    <button key={attr} onClick={() => handleSelectAttr(attr)}
-                      className="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border-2 border-transparent hover:border-coral active:scale-95 transition">
-                      <span className="font-title font-semibold text-sm text-gray-800">{ATTRIBUTE_LABELS[attr]}</span>
-                      <div className="flex items-center gap-2">
-                        {ATTRIBUTE_INVERTED[attr] && <span className="text-xs text-gray-400">(menor = melhor)</span>}
-                        <span className="font-title font-bold text-coral text-lg">{selectedCard.attributes[attr]}</span>
-                      </div>
-                    </button>
-                  ))}
+                  {(Object.keys(ATTRIBUTE_LABELS) as BattleAttribute[]).map((attr, i) => {
+                    const colors = ['bg-coral', 'bg-turquesa', 'bg-verde', 'bg-pink-400', 'bg-purple-400']
+                    return (
+                      <motion.button key={attr} onClick={() => handleSelectAttr(attr)}
+                        initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center justify-between bg-white rounded-2xl px-3 py-2.5 border-2 border-transparent hover:border-coral active:scale-95 transition shadow-sm">
+                        <span className="font-title font-bold text-sm text-gray-800">{ATTRIBUTE_LABELS[attr]}</span>
+                        <div className="flex items-center gap-2">
+                          {ATTRIBUTE_INVERTED[attr] && <span className="text-[10px] text-gray-400">(menor vence!)</span>}
+                          <span className={`font-title font-extrabold text-white text-base ${colors[i]} rounded-full w-9 h-9 flex items-center justify-center shadow`}>{selectedCard.attributes[attr]}</span>
+                        </div>
+                      </motion.button>
+                    )
+                  })}
                 </div>
               </Card>
             </motion.div>
