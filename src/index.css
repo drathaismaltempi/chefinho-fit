@@ -12,6 +12,17 @@
   h1, h2, h3 {
     @apply font-title;
   }
+
+  /* Acessibilidade: foco visível para navegação por teclado (WCAG 2.4.7) */
+  *:focus-visible {
+    outline: 3px solid #FF6B6B;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* Remove outline padrão apenas onde aplicamos focus-visible manualmente */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 /* Leaflet map z-index fix */

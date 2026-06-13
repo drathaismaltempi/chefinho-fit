@@ -9,6 +9,8 @@ import { CozinhaPage } from '../pages/aventura/CozinhaPage'
 import { BattlePage } from '../pages/aventura/BattlePage'
 import { MercadinhoPage } from '../pages/MercadinhoPage'
 import { RankingPage } from '../pages/RankingPage'
+import { PrivacidadePage } from '../pages/PrivacidadePage'
+import { TermosPage } from '../pages/TermosPage'
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,8 @@ export const router = createBrowserRouter([
       { path: 'aventura/batalha', element: <BattlePage /> },
       { path: 'mercadinho', element: <MercadinhoPage /> },
       { path: 'ranking', element: <RankingPage /> },
+      { path: 'privacidade', element: <PrivacidadePage /> },
+      { path: 'termos', element: <TermosPage /> },
     ],
   },
 ])

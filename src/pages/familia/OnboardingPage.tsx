@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
@@ -9,6 +9,14 @@ import { generateMealPlan, enhanceMealPlanWithAI } from '../../services/mealPlan
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 
 const TOTAL_STEPS = 8
+
+const LOADING_MESSAGES = [
+  'Analisando a despensa... 🥕',
+  'Montando receitas nutritivas... 👨‍🍳',
+  'Calculando porções ideais... ⚖️',
+  'Escolhendo combinações gostosas... 😋',
+  'Quase pronto! ✨',
+]
 
 type FormData = Omit<Child, 'id' | 'owner_id' | 'pantry_parsed'>
 
@@ -36,8 +44,65 @@ function loadSavedForm(): FormData {
   }
 }
 
+function hasConsented(): boolean {
+  return !!localStorage.getItem('chefinho-consent')
+}
+
+function ConsentGate({ onAccept }: { onAccept: () => void }) {
+  const [checked, setChecked] = useState(false)
+
+  function accept() {
+    localStorage.setItem('chefinho-consent', new Date().toISOString())
+    onAccept()
+  }
+
+  return (
+    <div className="px-4 py-6 flex flex-col gap-5">
+      <div>
+        <h1 className="font-title font-bold text-2xl text-gray-800">Antes de começar 👋</h1>
+        <p className="font-body text-sm text-gray-500 mt-1">Leia com atenção, responsável</p>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-3 font-body text-sm text-gray-700">
+        <p>O Chefinho Fit coleta informações da criança (nome, idade, peso, altura, alergias e preferências) para gerar um cardápio semanal personalizado com inteligência artificial.</p>
+        <p>Esses dados ficam salvos <strong>no seu dispositivo</strong>. Ao gerar o cardápio, o perfil é enviado de forma segura (HTTPS) ao nosso servidor apenas para processar a resposta da IA — sem armazenamento permanente.</p>
+        <p><strong>Não vendemos nem compartilhamos seus dados.</strong> Não usamos rastreadores ou publicidade.</p>
+        <p>
+          Leia nossa{' '}
+          <Link to="/privacidade" className="text-coral underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral rounded">
+            Política de Privacidade
+          </Link>{' '}
+          e nossos{' '}
+          <Link to="/termos" className="text-coral underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral rounded">
+            Termos de Uso
+          </Link>
+          .
+        </p>
+      </div>
+
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => setChecked(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-coral"
+          aria-label="Confirmar consentimento parental"
+        />
+        <span className="font-body text-sm text-gray-700">
+          Confirmo que sou o <strong>responsável legal</strong> desta criança e concordo com a coleta e uso dos dados conforme descrito acima.
+        </span>
+      </label>
+
+      <Button fullWidth onClick={accept} disabled={!checked}>
+        Continuar →
+      </Button>
+    </div>
+  )
+}
+
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const [consented, setConsented] = useState(hasConsented)
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(loadSavedForm)
   const [tagInput, setTagInput] = useState('')
@@ -45,7 +110,22 @@ export function OnboardingPage() {
     () => form.pantry_raw ? parsePantry(form.pantry_raw) : []
   )
   const [isGenerating, setIsGenerating] = useState(false)
+  const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0])
   const isEditing = !!localStorage.getItem('chefinho-child')
+
+  useEffect(() => {
+    if (!isGenerating) return
+    let i = 0
+    const id = setInterval(() => {
+      i = (i + 1) % LOADING_MESSAGES.length
+      setLoadingMsg(LOADING_MESSAGES[i])
+    }, 4000)
+    return () => clearInterval(id)
+  }, [isGenerating])
+
+  if (!consented) {
+    return <ConsentGate onAccept={() => setConsented(true)} />
+  }
 
   const update = (field: keyof FormData, value: unknown) => setForm(f => ({ ...f, [field]: value }))
   const toggleArr = (field: 'allergies' | 'food_dislikes' | 'food_preferences' | 'cookware', val: string) => {
@@ -228,7 +308,7 @@ export function OnboardingPage() {
           </Button>
         ) : (
           <Button fullWidth variant="secondary" onClick={handleFinish} disabled={isGenerating}>
-            {isGenerating ? '✨ A IA está criando seu cardápio...' : 'Gerar Cardápio com IA 🍽️'}
+            {isGenerating ? loadingMsg : 'Gerar Cardápio com IA 🍽️'}
           </Button>
         )}
       </div>

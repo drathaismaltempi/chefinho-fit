@@ -3,15 +3,60 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// In-memory rate limiting: 5 calls per hour per IP
+// Works as burst protection within a warm serverless instance.
+// For distributed rate limiting, add Upstash Redis (UPSTASH_REDIS_REST_URL + TOKEN).
+const ipCalls = new Map<string, { count: number; resetAt: number }>()
+const LIMIT = 5
+const WINDOW_MS = 60 * 60 * 1000 // 1 hour
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number } {
+  const now = Date.now()
+  const entry = ipCalls.get(ip)
+
+  if (!entry || now > entry.resetAt) {
+    ipCalls.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    return { allowed: true, remaining: LIMIT - 1 }
+  }
+
+  if (entry.count >= LIMIT) {
+    return { allowed: false, remaining: 0 }
+  }
+
+  entry.count++
+  return { allowed: true, remaining: LIMIT - entry.count }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  // Rate limiting by IP
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown'
+  const { allowed, remaining } = checkRateLimit(ip)
+  res.setHeader('X-RateLimit-Limit', LIMIT)
+  res.setHeader('X-RateLimit-Remaining', remaining)
+
+  if (!allowed) {
+    return res.status(429).json({
+      error: 'Limite de requisições atingido. Tente novamente em 1 hora.',
+    })
   }
 
   const { child, mealTypes } = req.body ?? {}
 
   if (!child || !mealTypes) {
     return res.status(400).json({ error: 'Dados insuficientes', received: JSON.stringify(req.body).slice(0, 200) })
+  }
+
+  // Basic input validation
+  if (typeof child.name !== 'string' || child.name.length > 100) {
+    return res.status(400).json({ error: 'Dados inválidos' })
   }
 
   try {
