@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { ProgressBar } from '../../components/ui/ProgressBar'
 import type { MealPlan, WeeklyGoal } from '../../types'
 import { MEAL_TYPE_LABELS } from '../../types'
-import { CheckCircle, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
+import { CheckCircle, ChevronLeft, ChevronRight, ShoppingCart, Lock } from 'lucide-react'
 import { usePointsStore } from '../../store/usePointsStore'
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -64,13 +64,22 @@ export function MealPlanPage() {
 
       {/* Day selector */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {plan.days.map((d, i) => (
-          <button key={i} onClick={() => setDayIndex(i)}
-            className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border-2 transition ${dayIndex === i ? 'border-coral bg-coral text-white' : 'border-gray-200 bg-white text-gray-600'}`}>
-            <span className="font-title font-bold text-sm">{DAY_NAMES[i]}</span>
-            <span className="text-xs opacity-70">{d.date.slice(8)}/{d.date.slice(5, 7)}</span>
-          </button>
-        ))}
+        {plan.days.map((d, i) => {
+          const locked = plan.free_days_limit !== undefined && i >= plan.free_days_limit
+          return (
+            <button key={i}
+              onClick={() => !locked && setDayIndex(i)}
+              disabled={locked}
+              aria-label={locked ? `Dia ${DAY_NAMES[i]} bloqueado — assine o Chefinho Plus` : DAY_NAMES[i]}
+              className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border-2 transition relative
+                ${locked ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' :
+                  dayIndex === i ? 'border-coral bg-coral text-white' : 'border-gray-200 bg-white text-gray-600'}`}>
+              {locked && <Lock size={10} className="absolute top-1 right-1 text-gray-400" />}
+              <span className="font-title font-bold text-sm">{DAY_NAMES[i]}</span>
+              <span className="text-xs opacity-70">{d.date.slice(8)}/{d.date.slice(5, 7)}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Day Navigation */}
@@ -79,10 +88,32 @@ export function MealPlanPage() {
           <ChevronLeft size={16} />
         </button>
         <span className="font-title font-semibold text-gray-700">{DAY_NAMES[dayIndex]}, {day.date.slice(8)}/{day.date.slice(5, 7)}</span>
-        <button onClick={() => setDayIndex(Math.min(6, dayIndex + 1))} disabled={dayIndex === 6} className="p-2 rounded-full bg-gray-100 disabled:opacity-40">
+        <button onClick={() => {
+          const next = dayIndex + 1
+          if (next >= plan.days.length) return
+          if (plan.free_days_limit !== undefined && next >= plan.free_days_limit) return
+          setDayIndex(next)
+        }} disabled={dayIndex >= (plan.free_days_limit ?? plan.days.length) - 1 && plan.free_days_limit !== undefined || dayIndex === 6} className="p-2 rounded-full bg-gray-100 disabled:opacity-40">
           <ChevronRight size={16} />
         </button>
       </div>
+
+      {/* Upgrade teaser for free users */}
+      {plan.free_days_limit !== undefined && (
+        <div className="bg-gradient-to-r from-coral/10 to-turquesa/10 border border-coral/30 rounded-2xl p-4 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⭐</span>
+            <div>
+              <p className="font-title font-bold text-sm text-gray-800">Semana completa no Chefinho Plus</p>
+              <p className="font-body text-xs text-gray-600">Você está vendo apenas o 1º dia. Assine para desbloquear os 7 dias personalizados pela IA.</p>
+            </div>
+          </div>
+          <Link to="/assinatura"
+            className="block text-center bg-coral text-white font-title font-bold text-sm py-2.5 rounded-xl hover:bg-coral/90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral">
+            Ver planos →
+          </Link>
+        </div>
+      )}
 
       {/* Meals */}
       <div className="flex flex-col gap-3">
