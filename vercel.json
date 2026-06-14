@@ -1,8 +1,8 @@
 {
   "functions": {
-    "api/generate-meal.ts": {
-      "maxDuration": 30
-    }
+    "api/generate-meal.ts": { "maxDuration": 30 },
+    "api/check-subscription.ts": { "maxDuration": 10 },
+    "api/webhook-hotmart.ts": { "maxDuration": 10 }
   },
   "headers": [
     {

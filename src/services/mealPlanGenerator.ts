@@ -108,19 +108,25 @@ export function generateMealPlan(child: Child): MealPlan {
 }
 
 // ─── Claude API — via função serverless do Vercel (segura) ───────────────────
-export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan): Promise<MealPlan> {
+export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan, token?: string | null): Promise<MealPlan & { errorCode?: string }> {
   const activeTypes = plan.days[0].meals.map(m => m.type)
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
     const res = await fetch('/api/generate-meal', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ child, mealTypes: activeTypes }),
     })
 
     if (!res.ok) {
-      const errText = await res.text()
-      throw new Error(`API ${res.status}: ${errText}`)
+      const errData = await res.json().catch(() => ({}))
+      // Erros tratáveis pelo chamador
+      if (res.status === 401) return { ...plan, ai_enhanced: false, errorCode: 'login_required' }
+      if (res.status === 402) return { ...plan, ai_enhanced: false, errorCode: 'limit_reached' }
+      throw new Error(`API ${res.status}: ${errData.message ?? ''}`)
     }
 
     const data = await res.json()

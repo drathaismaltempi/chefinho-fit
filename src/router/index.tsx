@@ -11,6 +11,8 @@ import { MercadinhoPage } from '../pages/MercadinhoPage'
 import { RankingPage } from '../pages/RankingPage'
 import { PrivacidadePage } from '../pages/PrivacidadePage'
 import { TermosPage } from '../pages/TermosPage'
+import { LoginPage } from '../pages/LoginPage'
+import { AssinaturePage } from '../pages/AssinaturePage'
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +20,8 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: 'login', element: <LoginPage /> },
+      { path: 'assinatura', element: <AssinaturePage /> },
       { path: 'familia', element: <FamiliaPage /> },
       { path: 'familia/onboarding', element: <OnboardingPage /> },
       { path: 'familia/plano', element: <MealPlanPage /> },

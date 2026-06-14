@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/useAuthStore'
+import { useSubscriptionStore } from '../../store/useSubscriptionStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '../../components/ui/Button'
 import { Input, Textarea } from '../../components/ui/Input'
@@ -102,6 +104,22 @@ function ConsentGate({ onAccept }: { onAccept: () => void }) {
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const { user, token } = useAuthStore()
+  const { aiMealsUsed, aiMealsLimit } = useSubscriptionStore()
+
+  // Redireciona para login se não autenticado
+  if (!user) return <Navigate to="/login?redirect=/familia/onboarding" replace />
+
+  // Redireciona para paywall se limite atingido (exceto quem está editando perfil existente)
+  const isEditing = !!localStorage.getItem('chefinho-child')
+  if (!isEditing && aiMealsUsed >= aiMealsLimit) {
+    return <Navigate to="/assinatura" replace />
+  }
+
+  return <OnboardingForm token={token} navigate={navigate} />
+}
+
+function OnboardingForm({ token, navigate }: { token: string | null; navigate: ReturnType<typeof useNavigate> }) {
   const [consented, setConsented] = useState(hasConsented)
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(loadSavedForm)
@@ -144,12 +162,20 @@ export function OnboardingPage() {
     const existingChild = localStorage.getItem('chefinho-child')
     const existingId = existingChild ? JSON.parse(existingChild).id : `child-${Date.now()}`
     const child: Child = { ...form, id: existingId, owner_id: 'local', pantry_parsed: parsed }
-    // Save child first
     localStorage.setItem('chefinho-child', JSON.stringify(child))
-    // Remove old plan so it won't show stale data
     localStorage.removeItem('chefinho-meal-plan')
     const basePlan = generateMealPlan(child)
-    const plan = await enhanceMealPlanWithAI(child, basePlan)
+    const plan = await enhanceMealPlanWithAI(child, basePlan, token)
+    if ((plan as any).errorCode === 'limit_reached') {
+      setIsGenerating(false)
+      navigate('/assinatura')
+      return
+    }
+    if ((plan as any).errorCode === 'login_required') {
+      setIsGenerating(false)
+      navigate('/login?redirect=/familia/onboarding')
+      return
+    }
     localStorage.setItem('chefinho-meal-plan', JSON.stringify(plan))
     setIsGenerating(false)
     navigate('/familia/plano')
