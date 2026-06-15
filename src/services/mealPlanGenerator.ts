@@ -108,7 +108,12 @@ export function generateMealPlan(child: Child): MealPlan {
 }
 
 // ─── Claude API — via função serverless do Vercel (segura) ───────────────────
-export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan, token?: string | null): Promise<MealPlan & { errorCode?: string }> {
+export async function enhanceMealPlanWithAI(
+  child: Child,
+  plan: MealPlan,
+  token?: string | null,
+  isPlus = false,
+): Promise<MealPlan & { errorCode?: string }> {
   const activeTypes = plan.days[0].meals.map(m => m.type)
 
   try {
@@ -123,31 +128,35 @@ export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan, token?
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
-      // Erros tratáveis pelo chamador
       if (res.status === 401) return { ...plan, ai_enhanced: false, errorCode: 'login_required' }
       if (res.status === 402) return { ...plan, ai_enhanced: false, errorCode: 'limit_reached' }
       throw new Error(`API ${res.status}: ${errData.message ?? ''}`)
     }
 
     const data = await res.json()
-
     if (!data.meals?.length) throw new Error('Nenhuma refeição retornada')
 
-    const enhancedDays: DayPlan[] = plan.days.map((day, dayIdx) => ({
-      ...day,
-      meals: day.meals.map((meal, mealIdx) => {
-        const aiMeal = data.meals[(mealIdx + dayIdx) % data.meals.length] ?? {}
-        return {
-          ...meal,
-          name: aiMeal.name ?? meal.name,
-          ingredients: aiMeal.ingredients ?? meal.ingredients,
-          preparation: aiMeal.preparation ?? meal.preparation,
-          tip: aiMeal.taste_tip && aiMeal.nutrition_tip
-            ? `${aiMeal.taste_tip} | ${aiMeal.nutrition_tip}`
-            : (aiMeal.taste_tip ?? aiMeal.nutrition_tip ?? meal.tip),
-        }
-      }),
-    }))
+    // Plano gratuito: enriquece apenas o 1º dia com IA; demais ficam como fallback
+    const daysToEnhance = isPlus ? plan.days.length : 1
+
+    const enhancedDays: DayPlan[] = plan.days.map((day, dayIdx) => {
+      if (dayIdx >= daysToEnhance) return day // dias bloqueados ficam como estão
+      return {
+        ...day,
+        meals: day.meals.map((meal, mealIdx) => {
+          const aiMeal = data.meals[(mealIdx + dayIdx) % data.meals.length] ?? {}
+          return {
+            ...meal,
+            name: aiMeal.name ?? meal.name,
+            ingredients: aiMeal.ingredients ?? meal.ingredients,
+            preparation: aiMeal.preparation ?? meal.preparation,
+            tip: aiMeal.taste_tip && aiMeal.nutrition_tip
+              ? `${aiMeal.taste_tip} | ${aiMeal.nutrition_tip}`
+              : (aiMeal.taste_tip ?? aiMeal.nutrition_tip ?? meal.tip),
+          }
+        }),
+      }
+    })
 
     const aiGoals: WeeklyGoal[] = (data.goals ?? []).map((g: Omit<WeeklyGoal, 'id' | 'current_value' | 'completed'>, i: number) => ({
       id: `goal-ai-${i}`, current_value: 0, completed: false, ...g,
@@ -157,8 +166,9 @@ export async function enhanceMealPlanWithAI(child: Child, plan: MealPlan, token?
       ...plan,
       days: enhancedDays,
       goals: aiGoals.length > 0 ? aiGoals : plan.goals,
-      shopping_list: data.shopping_list ?? [],
+      shopping_list: data.shopping_list ?? [],  // lista de compras sempre disponível
       ai_enhanced: true,
+      free_days_limit: isPlus ? undefined : 1,  // sinaliza ao frontend quantos dias são da IA
     }
   } catch (e: any) {
     console.error('Claude API error:', e?.message ?? e)

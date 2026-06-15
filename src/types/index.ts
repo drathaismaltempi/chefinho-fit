@@ -118,6 +118,7 @@ export interface MealPlan {
   goals: WeeklyGoal[]
   shopping_list?: ShoppingItem[]
   ai_enhanced?: boolean
+  free_days_limit?: number  // quantos dias foram enriquecidos pela IA no plano gratuito
   generated_at: string
 }
 

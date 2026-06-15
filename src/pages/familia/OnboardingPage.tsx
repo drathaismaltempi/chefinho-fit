@@ -116,10 +116,11 @@ export function OnboardingPage() {
     return <Navigate to="/assinatura" replace />
   }
 
-  return <OnboardingForm token={token} navigate={navigate} />
+  const { plan: subPlan } = useSubscriptionStore()
+  return <OnboardingForm token={token} isPlus={subPlan === 'plus'} navigate={navigate} />
 }
 
-function OnboardingForm({ token, navigate }: { token: string | null; navigate: ReturnType<typeof useNavigate> }) {
+function OnboardingForm({ token, isPlus, navigate }: { token: string | null; isPlus: boolean; navigate: ReturnType<typeof useNavigate> }) {
   const [consented, setConsented] = useState(hasConsented)
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(loadSavedForm)
@@ -165,7 +166,7 @@ function OnboardingForm({ token, navigate }: { token: string | null; navigate: R
     localStorage.setItem('chefinho-child', JSON.stringify(child))
     localStorage.removeItem('chefinho-meal-plan')
     const basePlan = generateMealPlan(child)
-    const plan = await enhanceMealPlanWithAI(child, basePlan, token)
+    const plan = await enhanceMealPlanWithAI(child, basePlan, token, isPlus)
     if ((plan as any).errorCode === 'limit_reached') {
       setIsGenerating(false)
       navigate('/assinatura')
