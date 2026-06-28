@@ -4,8 +4,7 @@ import { Button } from '../components/ui/Button'
 import { useSubscriptionStore } from '../store/useSubscriptionStore'
 import { useAuthStore } from '../store/useAuthStore'
 
-// Substituir pela URL real do checkout Hotmart após cadastrar o produto
-const HOTMART_CHECKOUT_URL = 'https://pay.hotmart.com/SEU-PRODUTO-AQUI'
+const HOTMART_CHECKOUT_URL = 'https://pay.hotmart.com/F106330072D'
 
 const FREE_FEATURES = [
   '1 cardápio personalizado por IA por mês',
